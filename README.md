@@ -54,6 +54,7 @@ frefresh list         # List customers
 frefresh refresh      # Refresh tables
 frefresh logout       # Clear cached credentials
 frefresh version      # Show version
+frefresh help         # Show available commands
 ```
 
 ## Configuration
