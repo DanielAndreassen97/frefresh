@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	neturl "net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -47,19 +48,37 @@ func authHeader(token string) http.Header {
 	return h
 }
 
-func doGet(token, url string) ([]byte, error) {
-	req, _ := http.NewRequest("GET", url, nil)
+// maxResponseSize limits API response reads to 10 MB.
+const maxResponseSize = 10 << 20
+
+func doGet(token, rawURL string) ([]byte, error) {
+	req, err := http.NewRequest("GET", rawURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("invalid request URL: %w", err)
+	}
 	req.Header = authHeader(token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
 	return body, nil
+}
+
+var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+func validateUUID(id, label string) error {
+	if !uuidRe.MatchString(id) {
+		return fmt.Errorf("invalid %s: %q is not a valid UUID", label, id)
+	}
+	return nil
 }
 
 func GetWorkspaceID(token, workspaceName string) (string, error) {
@@ -80,10 +99,17 @@ func GetWorkspaceID(token, workspaceName string) (string, error) {
 	if len(result.Value) == 0 {
 		return "", fmt.Errorf("workspace '%s' not found", workspaceName)
 	}
-	return result.Value[0].ID, nil
+	id := result.Value[0].ID
+	if err := validateUUID(id, "workspace ID"); err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 func GetDatasetID(token, workspaceID, datasetName string) (string, error) {
+	if err := validateUUID(workspaceID, "workspace ID"); err != nil {
+		return "", err
+	}
 	url := fmt.Sprintf("%s/groups/%s/datasets", baseURL, workspaceID)
 	data, err := doGet(token, url)
 	if err != nil {
@@ -100,6 +126,9 @@ func GetDatasetID(token, workspaceID, datasetName string) (string, error) {
 	}
 	for _, ds := range result.Value {
 		if ds.Name == datasetName {
+			if err := validateUUID(ds.ID, "dataset ID"); err != nil {
+				return "", err
+			}
 			return ds.ID, nil
 		}
 	}
@@ -107,11 +136,21 @@ func GetDatasetID(token, workspaceID, datasetName string) (string, error) {
 }
 
 func TriggerRefresh(token, workspaceID, datasetID string, tables []string) (string, error) {
+	if err := validateUUID(workspaceID, "workspace ID"); err != nil {
+		return "", err
+	}
+	if err := validateUUID(datasetID, "dataset ID"); err != nil {
+		return "", err
+	}
+
 	body := buildRefreshBody(tables, "full")
 	jsonData, _ := json.Marshal(body)
 
 	url := fmt.Sprintf("%s/groups/%s/datasets/%s/refreshes", baseURL, workspaceID, datasetID)
-	req, _ := http.NewRequest("POST", url, bytes.NewReader(jsonData))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("invalid request URL: %w", err)
+	}
 	req.Header = authHeader(token)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -122,7 +161,7 @@ func TriggerRefresh(token, workspaceID, datasetID string, tables []string) (stri
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		b, _ := io.ReadAll(resp.Body)
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 		return "", fmt.Errorf("refresh API error %d: %s", resp.StatusCode, string(b))
 	}
 
@@ -143,6 +182,12 @@ type RefreshMessage struct {
 }
 
 func PollRefreshStatus(token, workspaceID, datasetID, requestID string) (RefreshStatus, error) {
+	if err := validateUUID(workspaceID, "workspace ID"); err != nil {
+		return RefreshStatus{}, err
+	}
+	if err := validateUUID(datasetID, "dataset ID"); err != nil {
+		return RefreshStatus{}, err
+	}
 	url := fmt.Sprintf("%s/groups/%s/datasets/%s/refreshes/%s", baseURL, workspaceID, datasetID, requestID)
 	data, err := doGet(token, url)
 	if err != nil {

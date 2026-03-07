@@ -19,7 +19,7 @@ func main() {
 
 	// Check for --demo flag
 	isDemo := false
-	filtered := args[:0]
+	filtered := make([]string, 0, len(args))
 	for _, a := range args {
 		if a == "--demo" {
 			isDemo = true
@@ -59,6 +59,8 @@ func main() {
 		err = cmd.Refresh(configPath)
 	case "logout":
 		cmd.Logout(configPath)
+	case "help", "--help", "-h":
+		cmd.Help()
 	case "version", "--version", "-v":
 		fmt.Printf("frefresh %s\n", version)
 	default:
