@@ -73,6 +73,10 @@ Each customer needs:
 4. Triggers an enhanced refresh via the Power BI REST API
 5. Polls until completion and displays the result
 
+## Why does it need a local repo?
+
+The Power BI REST API has no endpoint to list tables in a semantic model. The [`/tables` endpoint](https://learn.microsoft.com/en-us/rest/api/power-bi/push-datasets/datasets-get-tables-in-group) only works for push datasets, and the [`executeQueries` endpoint](https://learn.microsoft.com/en-us/rest/api/power-bi/datasets/execute-queries) blocks metadata functions like `INFO.TABLES()`. Scanning your local Git-synced repo is the most reliable way to discover which tables exist and which are refreshable.
+
 ## Authentication
 
 Uses OAuth2 Authorization Code Flow with the Azure CLI public client ID. On first use per customer, a browser window opens for Microsoft login. Tokens are cached in your OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service) and silently refreshed — you typically authenticate once and stay logged in for months.
