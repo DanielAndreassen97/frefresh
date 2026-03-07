@@ -7,11 +7,13 @@ import (
 	"github.com/DanielAndreassen97/frefresh/cmd"
 	"github.com/DanielAndreassen97/frefresh/internal/config"
 	"github.com/DanielAndreassen97/frefresh/internal/demo"
+	"github.com/DanielAndreassen97/frefresh/internal/ui"
 )
 
 var version = "dev"
 
 func main() {
+	ui.Version = version
 	configPath := config.GetConfigPath()
 	args := os.Args[1:]
 
@@ -55,6 +57,8 @@ func main() {
 		err = cmd.List(configPath)
 	case "refresh":
 		err = cmd.Refresh(configPath)
+	case "logout":
+		cmd.Logout(configPath)
 	case "version", "--version", "-v":
 		fmt.Printf("frefresh %s\n", version)
 	default:

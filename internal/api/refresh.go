@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"strings"
 	"time"
 )
@@ -63,7 +64,7 @@ func doGet(token, url string) ([]byte, error) {
 
 func GetWorkspaceID(token, workspaceName string) (string, error) {
 	filter := fmt.Sprintf("name eq '%s'", strings.ReplaceAll(workspaceName, "'", "''"))
-	url := fmt.Sprintf("%s/groups?$filter=%s", baseURL, filter)
+	url := fmt.Sprintf("%s/groups?$filter=%s", baseURL, neturl.QueryEscape(filter))
 	data, err := doGet(token, url)
 	if err != nil {
 		return "", err
@@ -73,7 +74,9 @@ func GetWorkspaceID(token, workspaceName string) (string, error) {
 			ID string `json:"id"`
 		} `json:"value"`
 	}
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		return "", fmt.Errorf("failed to parse workspace response: %w", err)
+	}
 	if len(result.Value) == 0 {
 		return "", fmt.Errorf("workspace '%s' not found", workspaceName)
 	}
@@ -92,7 +95,9 @@ func GetDatasetID(token, workspaceID, datasetName string) (string, error) {
 			Name string `json:"name"`
 		} `json:"value"`
 	}
-	json.Unmarshal(data, &result)
+	if err := json.Unmarshal(data, &result); err != nil {
+		return "", fmt.Errorf("failed to parse dataset response: %w", err)
+	}
 	for _, ds := range result.Value {
 		if ds.Name == datasetName {
 			return ds.ID, nil
@@ -144,7 +149,9 @@ func PollRefreshStatus(token, workspaceID, datasetID, requestID string) (Refresh
 		return RefreshStatus{}, err
 	}
 	var status RefreshStatus
-	json.Unmarshal(data, &status)
+	if err := json.Unmarshal(data, &status); err != nil {
+		return RefreshStatus{}, fmt.Errorf("failed to parse refresh status: %w", err)
+	}
 	return status, nil
 }
 

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -18,12 +19,16 @@ func MainMenu(configPath string) {
 			{Label: "Edit customer", Value: "edit"},
 			{Label: "Remove customer", Value: "remove"},
 			{Label: "List customers", Value: "list"},
+			{Label: "Clear cached credentials", Value: "logout"},
 			{Label: "Quit", Value: "quit"},
 		}
 
 		choice, err := ui.NumberMenu("What would you like to do?", options)
 		if err != nil {
-			return
+			if errors.Is(err, ui.ErrGoBack) {
+				continue // Already at top level, just re-show menu
+			}
+			return // quit or real error
 		}
 
 		var cmdErr error
@@ -38,11 +43,16 @@ func MainMenu(configPath string) {
 			cmdErr = Remove(configPath)
 		case "list":
 			cmdErr = List(configPath)
+		case "logout":
+			Logout(configPath)
 		case "quit":
 			return
 		}
 
 		if cmdErr != nil {
+			if errors.Is(cmdErr, ui.ErrGoBack) {
+				continue // Go back to main menu
+			}
 			fmt.Fprintf(os.Stderr, "Error: %v\n", cmdErr)
 		}
 		fmt.Println()

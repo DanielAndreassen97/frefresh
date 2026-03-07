@@ -6,7 +6,7 @@ import (
 )
 
 func TestBuildAuthorizeURL(t *testing.T) {
-	url := buildAuthorizeURL("http://localhost:9999/callback", "test-state")
+	url := buildAuthorizeURL("http://localhost:9999", "test-state")
 	if url == "" {
 		t.Error("expected non-empty URL")
 	}

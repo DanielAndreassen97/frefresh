@@ -13,7 +13,7 @@ import (
 // MockAPIClient simulates the Power BI API for demo/recording purposes.
 type MockAPIClient struct{}
 
-func (MockAPIClient) GetAccessToken() (string, error) {
+func (MockAPIClient) GetAccessToken(customer string) (string, error) {
 	time.Sleep(500 * time.Millisecond)
 	return "demo-token", nil
 }
@@ -91,13 +91,36 @@ func SetupFixtures() (string, func(), error) {
 		os.WriteFile(filepath.Join(finTablesDir, t+".tmdl"), []byte(content), 0o644)
 	}
 
-	// Create config with demo customer
+	// Create second customer repo: Northwind
+	nwDir := filepath.Join(repoDir+"_northwind", "Sales.SemanticModel")
+	nwTablesDir := filepath.Join(nwDir, "definition", "tables")
+	os.MkdirAll(nwTablesDir, 0o755)
+
+	nwPlatform := map[string]any{
+		"metadata": map[string]any{"type": "SemanticModel", "displayName": "Sales"},
+		"config":   map[string]any{"logicalId": "demo-sales-001"},
+	}
+	nd, _ := json.Marshal(nwPlatform)
+	os.WriteFile(filepath.Join(nwDir, ".platform"), nd, 0o644)
+
+	nwTableNames := []string{"Dim Customer", "Dim Product", "Dim Region", "Fact Orders", "Fact Revenue"}
+	for _, t := range nwTableNames {
+		content := "table '" + t + "'\n\tpartition '" + t + "' = m\n\t\tmode: import\n"
+		os.WriteFile(filepath.Join(nwTablesDir, t+".tmdl"), []byte(content), 0o644)
+	}
+
+	// Create config with demo customers
 	cfg := config.Config{
 		Customers: map[string]config.Customer{
 			"Contoso": {
 				Path:             repoDir,
 				WorkspacePattern: "DP - {env} - SemMod",
 				Environments:     []string{"DEV", "TEST", "PROD"},
+			},
+			"Northwind": {
+				Path:             repoDir + "_northwind",
+				WorkspacePattern: "NW - {env} - Analytics",
+				Environments:     []string{"DEV", "PROD"},
 			},
 		},
 	}

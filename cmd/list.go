@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	listHeaderStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	listHeaderStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#e8712a"))
 	listLabelStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 

@@ -25,12 +25,12 @@ var (
 			Foreground(lipgloss.Color("1")).
 			Padding(0, 1)
 
-	infoStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+	infoStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#e8712a"))
 )
 
 // APIClient abstracts the Power BI API calls for testability and demo mode.
 type APIClient interface {
-	GetAccessToken() (string, error)
+	GetAccessToken(customer string) (string, error)
 	GetWorkspaceID(token, workspaceName string) (string, error)
 	GetDatasetID(token, workspaceID, datasetName string) (string, error)
 	TriggerRefresh(token, workspaceID, datasetID string, tables []string) (string, error)
@@ -40,8 +40,8 @@ type APIClient interface {
 // RealAPIClient calls the actual Power BI REST API.
 type RealAPIClient struct{}
 
-func (RealAPIClient) GetAccessToken() (string, error) {
-	return api.GetAccessToken()
+func (RealAPIClient) GetAccessToken(customer string) (string, error) {
+	return api.GetAccessToken(customer)
 }
 func (RealAPIClient) GetWorkspaceID(token, workspaceName string) (string, error) {
 	return api.GetWorkspaceID(token, workspaceName)
@@ -134,38 +134,58 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 	}
 
 	fmt.Println()
-	fmt.Println(infoStyle.Render("Opening browser for authentication..."))
-	token, err := client.GetAccessToken()
+	fmt.Println(infoStyle.Render("Authenticating..."))
+	token, err := client.GetAccessToken(customerName)
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 	fmt.Println(infoStyle.Render("Authenticated."))
 
-	fmt.Println(infoStyle.Render("Looking up workspace and dataset..."))
-	workspaceID, err := client.GetWorkspaceID(token, workspaceName)
-	if err != nil {
-		return err
-	}
-	datasetID, err := client.GetDatasetID(token, workspaceID, model.Name)
-	if err != nil {
-		return err
+	startTime := time.Now()
+
+	// Run spinner while refreshing
+	spinner := ui.NewSpinner("Refreshing...")
+	spinner.Start()
+
+	var refreshErr error
+	var status api.RefreshStatus
+
+	func() {
+		defer spinner.Stop()
+
+		workspaceID, err := client.GetWorkspaceID(token, workspaceName)
+		if err != nil {
+			refreshErr = err
+			return
+		}
+		datasetID, err := client.GetDatasetID(token, workspaceID, model.Name)
+		if err != nil {
+			refreshErr = err
+			return
+		}
+
+		requestID, err := client.TriggerRefresh(token, workspaceID, datasetID, selectedTables)
+		if err != nil {
+			refreshErr = err
+			return
+		}
+
+		status, err = client.WaitForRefresh(token, workspaceID, datasetID, requestID)
+		if err != nil {
+			refreshErr = err
+			return
+		}
+	}()
+
+	if refreshErr != nil {
+		return refreshErr
 	}
 
-	fmt.Println(infoStyle.Render("Triggering refresh..."))
-	requestID, err := client.TriggerRefresh(token, workspaceID, datasetID, selectedTables)
-	if err != nil {
-		return err
-	}
-	fmt.Printf(infoStyle.Render("Refresh triggered (request ID: %s). Waiting...")+"\n", requestID)
-
-	status, err := client.WaitForRefresh(token, workspaceID, datasetID, requestID)
-	if err != nil {
-		return err
-	}
+	duration := time.Since(startTime).Round(time.Second)
 
 	fmt.Println()
 	if status.Status == "Completed" {
-		fmt.Println(successStyle.Render("Refresh completed successfully!"))
+		fmt.Println(successStyle.Render(fmt.Sprintf("Refresh completed successfully! (%s)", duration)))
 	} else {
 		msg := fmt.Sprintf("Refresh %s", status.Status)
 		if len(status.Messages) > 0 {

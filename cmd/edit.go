@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/DanielAndreassen97/frefresh/internal/config"
 	"github.com/DanielAndreassen97/frefresh/internal/ui"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
 )
 
@@ -35,20 +37,25 @@ func Edit(configPath string) error {
 	pattern := customer.WorkspacePattern
 	envInput := strings.Join(customer.Environments, ", ")
 
-	form := huh.NewForm(
+	km := huh.NewDefaultKeyMap()
+	km.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"))
+
+	err = huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Title("Path to folder with semantic models").Value(&path),
 			huh.NewInput().Title("Workspace pattern (use {env} for environment)").Value(&pattern),
 			huh.NewInput().Title("Environments (comma-separated)").Value(&envInput),
 		),
-	)
-
-	if err := form.Run(); err != nil {
+	).WithTheme(formTheme).WithKeyMap(km).Run()
+	if err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return ui.ErrGoBack
+		}
 		return err
 	}
 
 	err = config.EditCustomer(configPath, selected, config.Customer{
-		Path:             path,
+		Path:             strings.TrimRight(path, "/"),
 		WorkspacePattern: pattern,
 		Environments:     parseEnvs(envInput),
 	})

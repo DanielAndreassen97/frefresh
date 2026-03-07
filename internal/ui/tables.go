@@ -44,6 +44,7 @@ type tableCheckModel struct {
 	cursor    int
 	selected  []string
 	cancelled bool
+	done      bool
 	groupMap  map[int][]int // group index -> child indices
 	parentMap map[int]int   // child index -> group index
 	allGroups []int
@@ -176,9 +177,15 @@ func (m tableCheckModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.toggle(m.cursor)
 		case "enter":
 			m.selected = m.collectSelected()
+			m.done = true
 			return m, tea.Quit
-		case "esc", "ctrl+c":
+		case "esc", "b":
 			m.cancelled = true
+			m.done = true
+			return m, tea.Quit
+		case "ctrl+c", "q":
+			m.cancelled = true
+			m.done = true
 			return m, tea.Quit
 		}
 	}
@@ -186,15 +193,22 @@ func (m tableCheckModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 var (
-	pointerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
-	checkedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Bold(true)
+	pointerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#e8712a")).Bold(true)
+	checkedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#e8712a")).Bold(true)
 	dimmedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	selectedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Bold(true)
+	selectedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#e8712a")).Bold(true)
 )
 
 func (m tableCheckModel) View() string {
+	if m.done {
+		if m.cancelled {
+			return ""
+		}
+		return selectedStyle.Render(fmt.Sprintf("  Tables: %d selected", len(m.selected))) + "\n"
+	}
+
 	var b strings.Builder
-	fmt.Fprintf(&b, "? %s  (Space: toggle, Enter: confirm, Esc: cancel)\n\n", m.message)
+	fmt.Fprintf(&b, "  %s  (space to toggle)\n\n", m.message)
 
 	for i, item := range m.items {
 		locked := m.isLocked(i)
