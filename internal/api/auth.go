@@ -208,7 +208,7 @@ func browserAuth(customer string) (string, error) {
 		if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 			errCh <- fmt.Errorf("auth error: %s — %s", errMsg, r.URL.Query().Get("error_description"))
 			safeMsg := strings.ReplaceAll(strings.ReplaceAll(errMsg, "<", "&lt;"), ">", "&gt;")
-		fmt.Fprintf(w, "<html><body><h2>Authentication failed</h2><p>%s</p><p>You can close this tab.</p></body></html>", safeMsg)
+			fmt.Fprintf(w, "<html><body><h2>Authentication failed</h2><p>%s</p><p>You can close this tab.</p></body></html>", safeMsg)
 			return
 		}
 		code := r.URL.Query().Get("code")

@@ -134,7 +134,7 @@ func TriggerRefresh(token, workspaceID, datasetID string, tables []string) (stri
 }
 
 type RefreshStatus struct {
-	Status   string          `json:"status"`
+	Status   string           `json:"status"`
 	Messages []RefreshMessage `json:"messages,omitempty"`
 }
 

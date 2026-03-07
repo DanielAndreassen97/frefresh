@@ -66,10 +66,9 @@ func (m menuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 var (
-	accentColor       = lipgloss.Color("#e8712a")
-	menuPointerStyle  = lipgloss.NewStyle().Foreground(accentColor).Bold(true)
-	menuNumberStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	menuSelectedStyle = lipgloss.NewStyle().Foreground(accentColor)
+	menuPointerStyle  = lipgloss.NewStyle().Foreground(AccentColor).Bold(true)
+	menuNumberStyle   = lipgloss.NewStyle().Foreground(DimColor)
+	menuSelectedStyle = lipgloss.NewStyle().Foreground(AccentColor)
 )
 
 func (m menuModel) selectedLabel() string {
@@ -106,6 +105,15 @@ func (m menuModel) View() string {
 	return b.String()
 }
 
+// MenuOptionsFromStrings creates MenuOptions where Label and Value are both the string value.
+func MenuOptionsFromStrings(values []string) []MenuOption {
+	opts := make([]MenuOption, len(values))
+	for i, v := range values {
+		opts[i] = MenuOption{Label: v, Value: v}
+	}
+	return opts
+}
+
 // NumberMenu shows a select menu with digit key support.
 // Returns ErrGoBack if the user presses Esc/b.
 func NumberMenu(message string, options []MenuOption) (string, error) {
@@ -129,9 +137,9 @@ func NumberMenu(message string, options []MenuOption) (string, error) {
 func Confirm(message string) (bool, error) {
 	var result bool
 	theme := huh.ThemeBase()
-	theme.Focused.FocusedButton = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(accentColor).Padding(0, 1)
-	theme.Focused.BlurredButton = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Padding(0, 1)
-	theme.Focused.Title = lipgloss.NewStyle().Foreground(accentColor).Bold(true)
+	theme.Focused.FocusedButton = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(AccentColor).Padding(0, 1)
+	theme.Focused.BlurredButton = lipgloss.NewStyle().Foreground(DimColor).Padding(0, 1)
+	theme.Focused.Title = lipgloss.NewStyle().Foreground(AccentColor).Bold(true)
 
 	km := huh.NewDefaultKeyMap()
 	km.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"))

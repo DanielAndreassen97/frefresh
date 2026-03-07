@@ -28,8 +28,8 @@ type platformFile struct {
 func DiscoverModels(basePath string) ([]SemanticModel, error) {
 	var models []SemanticModel
 
-	err := filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || info.Name() != ".platform" {
+	err := filepath.WalkDir(basePath, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || d.Name() != ".platform" {
 			return nil
 		}
 		data, err := os.ReadFile(path)

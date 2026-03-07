@@ -193,10 +193,10 @@ func (m tableCheckModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 var (
-	pointerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#e8712a")).Bold(true)
-	checkedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#e8712a")).Bold(true)
-	dimmedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	selectedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#e8712a")).Bold(true)
+	pointerStyle  = lipgloss.NewStyle().Foreground(AccentColor).Bold(true)
+	checkedStyle  = lipgloss.NewStyle().Foreground(AccentColor).Bold(true)
+	dimmedStyle   = lipgloss.NewStyle().Foreground(DimColor)
+	selectedStyle = lipgloss.NewStyle().Foreground(AccentColor).Bold(true)
 )
 
 func (m tableCheckModel) View() string {

@@ -16,12 +16,11 @@ import (
 
 var formTheme = func() *huh.Theme {
 	t := huh.ThemeBase()
-	orange := lipgloss.Color("#e8712a")
-	t.Focused.Title = lipgloss.NewStyle().Foreground(orange).Bold(true)
-	t.Focused.FocusedButton = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(orange).Padding(0, 1)
-	t.Focused.BlurredButton = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Padding(0, 1)
-	t.Focused.TextInput.Cursor = lipgloss.NewStyle().Foreground(orange)
-	t.Focused.TextInput.Prompt = lipgloss.NewStyle().Foreground(orange)
+	t.Focused.Title = lipgloss.NewStyle().Foreground(ui.AccentColor).Bold(true)
+	t.Focused.FocusedButton = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(ui.AccentColor).Padding(0, 1)
+	t.Focused.BlurredButton = lipgloss.NewStyle().Foreground(ui.DimColor).Padding(0, 1)
+	t.Focused.TextInput.Cursor = lipgloss.NewStyle().Foreground(ui.AccentColor)
+	t.Focused.TextInput.Prompt = lipgloss.NewStyle().Foreground(ui.AccentColor)
 	return t
 }()
 
@@ -65,7 +64,7 @@ func Add(configPath string) error {
 	}
 
 	// Step 2: Path — try Finder picker, fall back to text input
-	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#e8712a")).Bold(true)
+	titleStyle := lipgloss.NewStyle().Foreground(ui.AccentColor).Bold(true)
 	fmt.Println("  " + titleStyle.Render("Path to folder with semantic models"))
 	path, err := pickFolder()
 	if err != nil {

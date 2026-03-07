@@ -9,7 +9,7 @@ import (
 )
 
 var dimStyle = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("8"))
+	Foreground(DimColor)
 
 // Version is set by main at startup.
 var Version = "dev"

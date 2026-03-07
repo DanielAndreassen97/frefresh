@@ -25,7 +25,7 @@ var (
 			Foreground(lipgloss.Color("1")).
 			Padding(0, 1)
 
-	infoStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#e8712a"))
+	infoStyle = lipgloss.NewStyle().Foreground(ui.AccentColor)
 )
 
 // APIClient abstracts the Power BI API calls for testability and demo mode.
@@ -208,12 +208,7 @@ func selectCustomer(cfg config.Config) (string, config.Customer, error) {
 		return name, cfg.Customers[name], nil
 	}
 
-	options := make([]ui.MenuOption, len(names))
-	for i, n := range names {
-		options[i] = ui.MenuOption{Label: n, Value: n}
-	}
-
-	selected, err := ui.NumberMenu("Select customer", options)
+	selected, err := ui.NumberMenu("Select customer", ui.MenuOptionsFromStrings(names))
 	if err != nil {
 		return "", config.Customer{}, err
 	}

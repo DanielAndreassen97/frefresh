@@ -22,10 +22,7 @@ func Edit(configPath string) error {
 	}
 
 	names := sortedCustomerNames(cfg)
-	options := make([]ui.MenuOption, len(names))
-	for i, n := range names {
-		options[i] = ui.MenuOption{Label: n, Value: n}
-	}
+	options := ui.MenuOptionsFromStrings(names)
 
 	selected, err := ui.NumberMenu("Select customer to edit", options)
 	if err != nil {

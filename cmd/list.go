@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"github.com/DanielAndreassen97/frefresh/internal/config"
+	"github.com/DanielAndreassen97/frefresh/internal/ui"
 	"github.com/charmbracelet/lipgloss"
 )
 
 var (
-	listHeaderStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#e8712a"))
-	listLabelStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	listHeaderStyle = lipgloss.NewStyle().Bold(true).Foreground(ui.AccentColor)
+	listLabelStyle  = lipgloss.NewStyle().Foreground(ui.DimColor)
 )
 
 func List(configPath string) error {

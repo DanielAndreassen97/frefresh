@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#e8712a"))
+var spinnerStyle = lipgloss.NewStyle().Foreground(AccentColor)
 
 var frames = []string{"▱▱▱", "▰▱▱", "▰▰▱", "▰▰▰", "▰▰▱", "▰▱▱"}
 
