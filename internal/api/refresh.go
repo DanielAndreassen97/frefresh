@@ -25,15 +25,18 @@ type refreshBody struct {
 }
 
 func buildRefreshBody(tables []string, refreshType string) refreshBody {
-	objects := make([]refreshObject, len(tables))
-	for i, t := range tables {
-		objects[i] = refreshObject{Table: t}
-	}
-	return refreshBody{
+	body := refreshBody{
 		Type:       refreshType,
 		CommitMode: "transactional",
-		Objects:    objects,
 	}
+	if len(tables) > 0 {
+		objects := make([]refreshObject, len(tables))
+		for i, t := range tables {
+			objects[i] = refreshObject{Table: t}
+		}
+		body.Objects = objects
+	}
+	return body
 }
 
 func parseRequestID(locationURL string) string {

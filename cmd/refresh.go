@@ -113,6 +113,13 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 		return nil
 	}
 
+	// If all tables selected, omit objects to trigger a full model refresh
+	allSelected := len(selectedTables) == len(tables)
+	var refreshTables []string
+	if !allSelected {
+		refreshTables = selectedTables
+	}
+
 	workspaceName := strings.ReplaceAll(customer.WorkspacePattern, "{env}", env)
 
 	fmt.Println()
@@ -164,7 +171,7 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 			return
 		}
 
-		requestID, err := client.TriggerRefresh(token, workspaceID, datasetID, selectedTables)
+		requestID, err := client.TriggerRefresh(token, workspaceID, datasetID, refreshTables)
 		if err != nil {
 			refreshErr = err
 			return
