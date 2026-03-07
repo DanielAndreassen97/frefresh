@@ -48,7 +48,6 @@ frefresh list         # List customers
 frefresh refresh      # Refresh tables
 frefresh logout       # Clear cached credentials
 frefresh version      # Show version
-frefresh --demo       # Demo mode (mock API, fake data)
 ```
 
 ## Configuration

@@ -1,2 +1,6 @@
 frefresh
 dist/
+demo.gif
+demo.tape
+*.md
+!README.md
