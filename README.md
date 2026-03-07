@@ -37,6 +37,12 @@ go install github.com/DanielAndreassen97/frefresh@latest
 
 Download from [GitHub Releases](https://github.com/DanielAndreassen97/frefresh/releases/latest) and add to your PATH.
 
+## Prerequisites
+
+- A Fabric workspace with [Git integration](https://learn.microsoft.com/en-us/fabric/cicd/git-integration/intro-to-git-integration) enabled, and a local clone of the repo. frefresh reads the `.platform` and `.tmdl` files that Fabric syncs to Git to discover your semantic models and tables.
+- A workspace on **Fabric (F SKU)**, **Premium (P SKU)**, **Premium Per User (PPU)**, or **Embedded (A/EM SKU)** capacity. Table-level refresh uses the [Enhanced Refresh API](https://learn.microsoft.com/en-us/power-bi/connect-data/asynchronous-refresh) which is not available on Power BI Pro.
+- An Entra ID account with Contributor (or higher) permissions on the workspace.
+
 ## Usage
 
 ```sh
