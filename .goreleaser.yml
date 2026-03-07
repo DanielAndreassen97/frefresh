@@ -13,20 +13,20 @@ builds:
       - -s -w -X main.version={{.Version}}
 
 archives:
-  - format: tar.gz
+  - formats:
+      - tar.gz
     name_template: "frefresh_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
 
-brews:
+homebrew_casks:
   - repository:
       owner: DanielAndreassen97
       name: homebrew-tap
     homepage: https://github.com/DanielAndreassen97/frefresh
     description: Interactive CLI for refreshing tables in Fabric semantic models
-    install: |
-      bin.install "frefresh"
 
 scoops:
   - repository:
