@@ -104,20 +104,13 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 		return fmt.Errorf("no refreshable tables found in %s", model.Name)
 	}
 
-	selectedTables, err := ui.TableCheckbox("Select tables to refresh", tables)
+	selection, err := ui.TableCheckbox("Select tables to refresh", tables)
 	if err != nil {
 		return err
 	}
-	if len(selectedTables) == 0 {
+	if !selection.FullRefresh && len(selection.Tables) == 0 {
 		fmt.Println("No tables selected.")
 		return nil
-	}
-
-	// If all tables selected, omit objects to trigger a full model refresh
-	allSelected := len(selectedTables) == len(tables)
-	var refreshTables []string
-	if !allSelected {
-		refreshTables = selectedTables
 	}
 
 	workspaceName := strings.ReplaceAll(customer.WorkspacePattern, "{env}", env)
@@ -128,7 +121,7 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 	fmt.Printf("  Environment: %s\n", env)
 	fmt.Printf("  Workspace:   %s\n", workspaceName)
 	fmt.Printf("  Model:       %s\n", model.Name)
-	fmt.Printf("  Tables:      %s\n", strings.Join(selectedTables, ", "))
+	fmt.Printf("  Tables:      %s\n", selection.Summary)
 	fmt.Println()
 
 	ok, err := ui.Confirm("Start refresh?")
@@ -171,7 +164,7 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 			return
 		}
 
-		requestID, err := client.TriggerRefresh(token, workspaceID, datasetID, refreshTables)
+		requestID, err := client.TriggerRefresh(token, workspaceID, datasetID, selection.Tables)
 		if err != nil {
 			refreshErr = err
 			return

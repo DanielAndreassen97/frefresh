@@ -74,9 +74,12 @@ func TestToggleAll(t *testing.T) {
 		}
 	}
 
-	selected := m.collectSelected()
-	if len(selected) != 2 {
-		t.Errorf("expected 2 selected, got %d", len(selected))
+	sel := m.collectSelection()
+	if !sel.FullRefresh {
+		t.Error("expected FullRefresh when all tables toggled")
+	}
+	if sel.Summary != "Full model refresh" {
+		t.Errorf("expected 'Full model refresh', got %q", sel.Summary)
 	}
 }
 
@@ -105,9 +108,15 @@ func TestToggleGroup(t *testing.T) {
 		}
 	}
 
-	selected := m.collectSelected()
-	if len(selected) != 2 {
-		t.Errorf("expected 2 selected (Dim A, Dim B), got %d: %v", len(selected), selected)
+	sel := m.collectSelection()
+	if sel.FullRefresh {
+		t.Error("should not be full refresh when only one group selected")
+	}
+	if len(sel.Tables) != 2 {
+		t.Errorf("expected 2 selected (Dim A, Dim B), got %d: %v", len(sel.Tables), sel.Tables)
+	}
+	if sel.Summary != "All Dim (2)" {
+		t.Errorf("expected 'All Dim (2)', got %q", sel.Summary)
 	}
 }
 
@@ -164,9 +173,15 @@ func TestToggleIndividualTable(t *testing.T) {
 		t.Error("expected individual table to be checked")
 	}
 
-	selected := m.collectSelected()
-	if len(selected) != 1 {
-		t.Errorf("expected 1 selected, got %d", len(selected))
+	sel := m.collectSelection()
+	if sel.FullRefresh {
+		t.Error("should not be full refresh for individual table")
+	}
+	if len(sel.Tables) != 1 {
+		t.Errorf("expected 1 selected, got %d", len(sel.Tables))
+	}
+	if sel.Summary != sel.Tables[0] {
+		t.Errorf("expected summary to be table name %q, got %q", sel.Tables[0], sel.Summary)
 	}
 }
 

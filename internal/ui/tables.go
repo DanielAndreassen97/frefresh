@@ -42,7 +42,7 @@ type tableCheckModel struct {
 	message   string
 	items     []checkItem
 	cursor    int
-	selected  []string
+	selection TableSelection
 	cancelled bool
 	done      bool
 	groupMap  map[int][]int // group index -> child indices
@@ -137,30 +137,43 @@ func (m *tableCheckModel) toggle(idx int) {
 	}
 }
 
-func (m tableCheckModel) collectSelected() []string {
+// TableSelection holds the result of the table checkbox.
+type TableSelection struct {
+	FullRefresh bool     // true = refresh entire model, no specific tables
+	Tables      []string // specific table names (only when FullRefresh is false)
+	Summary     string   // human-readable description for display
+}
+
+func (m tableCheckModel) collectSelection() TableSelection {
 	if m.items[0].checked {
-		var all []string
-		for _, idx := range m.allItems {
-			all = append(all, m.items[idx].tableName)
-		}
-		return all
+		return TableSelection{FullRefresh: true, Summary: "Full model refresh"}
 	}
-	var result []string
-	for gIdx, children := range m.groupMap {
-		if m.items[gIdx].checked {
+
+	var tables []string
+	var summaryParts []string
+
+	for _, gIdx := range m.allGroups {
+		group := m.items[gIdx]
+		children := m.groupMap[gIdx]
+
+		if group.checked {
+			// Whole group selected — add tables but use group label in summary
 			for _, ci := range children {
-				result = append(result, m.items[ci].tableName)
+				tables = append(tables, m.items[ci].tableName)
 			}
+			summaryParts = append(summaryParts, fmt.Sprintf("All %s (%d)", group.group, len(children)))
 		} else {
 			for _, ci := range children {
 				if m.items[ci].checked {
-					result = append(result, m.items[ci].tableName)
+					tables = append(tables, m.items[ci].tableName)
+					summaryParts = append(summaryParts, m.items[ci].tableName)
 				}
 			}
 		}
 	}
-	sort.Strings(result)
-	return result
+
+	sort.Strings(tables)
+	return TableSelection{Tables: tables, Summary: strings.Join(summaryParts, ", ")}
 }
 
 func (m tableCheckModel) Init() tea.Cmd { return nil }
@@ -176,7 +189,7 @@ func (m tableCheckModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case " ":
 			m.toggle(m.cursor)
 		case "enter":
-			m.selected = m.collectSelected()
+			m.selection = m.collectSelection()
 			m.done = true
 			return m, tea.Quit
 		case "esc", "b":
@@ -204,7 +217,7 @@ func (m tableCheckModel) View() string {
 		if m.cancelled {
 			return ""
 		}
-		return selectedStyle.Render(fmt.Sprintf("  Tables: %d selected", len(m.selected))) + "\n"
+		return selectedStyle.Render(fmt.Sprintf("  Tables: %s", m.selection.Summary)) + "\n"
 	}
 
 	var b strings.Builder
@@ -245,17 +258,17 @@ func (m tableCheckModel) View() string {
 }
 
 // TableCheckbox shows an interactive table selector with group toggle support.
-// Returns selected table names, or nil + error if cancelled.
-func TableCheckbox(message string, tables []string) ([]string, error) {
+// Returns a TableSelection describing what was chosen, or error if cancelled.
+func TableCheckbox(message string, tables []string) (TableSelection, error) {
 	model := newTableCheckModel(message, tables)
 	p := tea.NewProgram(model)
 	final, err := p.Run()
 	if err != nil {
-		return nil, err
+		return TableSelection{}, err
 	}
 	result := final.(tableCheckModel)
 	if result.cancelled {
-		return nil, fmt.Errorf("cancelled")
+		return TableSelection{}, fmt.Errorf("cancelled")
 	}
-	return result.selected, nil
+	return result.selection, nil
 }
