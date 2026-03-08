@@ -21,12 +21,14 @@ archives:
         formats:
           - zip
 
-homebrew_casks:
+brews:
   - repository:
       owner: DanielAndreassen97
       name: homebrew-tap
     homepage: https://github.com/DanielAndreassen97/frefresh
     description: Interactive CLI for refreshing tables in Fabric semantic models
+    install: |
+      bin.install "frefresh"
 
 scoops:
   - repository:
