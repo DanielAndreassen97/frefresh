@@ -7,7 +7,8 @@ Interactive CLI for refreshing tables in Microsoft Fabric semantic models via th
 ## Features
 
 - **Interactive TUI** — navigate with arrow keys, number keys, or keyboard shortcuts
-- **Semantic model discovery** — automatically finds models and tables from your Fabric repo (`.tmdl` files)
+- **Live table discovery** — queries the deployed model via the Fabric API to find refreshable tables
+- **Smart filtering** — automatically excludes calculated tables, calculation groups, and measure-only tables
 - **Per-customer config** — manage multiple customers with separate workspaces and environments
 - **OAuth2 browser auth** — authenticates via Microsoft Entra ID with per-customer token caching in your OS keychain
 - **Cross-platform** — macOS, Linux, Windows
@@ -39,7 +40,6 @@ Download from [GitHub Releases](https://github.com/DanielAndreassen97/frefresh/r
 
 ## Prerequisites
 
-- A Fabric workspace with [Git integration](https://learn.microsoft.com/en-us/fabric/cicd/git-integration/intro-to-git-integration) enabled, and a local clone of the repo. frefresh reads the `.platform` and `.tmdl` files that Fabric syncs to Git to discover your semantic models and tables.
 - A workspace on **Fabric (F SKU)**, **Premium (P SKU)**, **Premium Per User (PPU)**, or **Embedded (A/EM SKU)** capacity. Table-level refresh uses the [Enhanced Refresh API](https://learn.microsoft.com/en-us/power-bi/connect-data/asynchronous-refresh) which is not available on Power BI Pro.
 - An Entra ID account with Contributor (or higher) permissions on the workspace.
 
@@ -62,21 +62,36 @@ frefresh help         # Show available commands
 Config is stored at `~/.config/frefresh/config.json` (macOS/Linux) or `%APPDATA%\frefresh\config.json` (Windows).
 
 Each customer needs:
-- **Path** — local path to the Fabric repo containing `.SemanticModel` folders
 - **Workspace pattern** — Power BI workspace name with `{env}` placeholder (e.g. `DP - {env} - SemMod`)
 - **Environments** — list of environments (e.g. `DEV, TEST, PROD`)
 
 ## How it works
 
-1. Discovers semantic models by scanning for `.platform` files
-2. Discovers refreshable tables from `.tmdl` files (excludes calculated tables and calculation groups)
-3. Authenticates via browser-based OAuth2 with Microsoft Entra ID
-4. Triggers an enhanced refresh via the Power BI REST API
-5. Polls until completion and displays the result
+1. Authenticates via browser-based OAuth2 with Microsoft Entra ID
+2. Resolves the workspace by name using the [Power BI REST API](https://learn.microsoft.com/en-us/rest/api/power-bi/groups/get-groups)
+3. Lists semantic models (datasets) in the workspace via the [Power BI Datasets API](https://learn.microsoft.com/en-us/rest/api/power-bi/datasets/get-datasets-in-group)
+4. Fetches the model's TMDL definition using the [Fabric getDefinition API](https://learn.microsoft.com/en-us/rest/api/fabric/semanticmodel/items/get-semantic-model-definition) to discover all tables
+5. Filters tables by partition type — only tables with `partition = m` (Power Query / import) are refreshable
+6. Triggers an enhanced refresh via the [Power BI Enhanced Refresh API](https://learn.microsoft.com/en-us/power-bi/connect-data/asynchronous-refresh)
+7. Polls until completion and displays the result
 
-## Why does it need a local repo?
+### APIs used
 
-The Power BI REST API has no endpoint to list tables in a semantic model. The [`/tables` endpoint](https://learn.microsoft.com/en-us/rest/api/power-bi/push-datasets/datasets-get-tables-in-group) only works for push datasets, and the [`executeQueries` endpoint](https://learn.microsoft.com/en-us/rest/api/power-bi/datasets/execute-queries) blocks metadata functions like `INFO.TABLES()`. Scanning your local Git-synced repo is the most reliable way to discover which tables exist and which are refreshable.
+| API | Purpose |
+|-----|---------|
+| **Power BI REST API** (`api.powerbi.com`) | Workspace resolution, dataset listing, refresh trigger/polling |
+| **Fabric Items API** (`api.fabric.microsoft.com`) | `getDefinition` — fetches TMDL metadata for table discovery |
+| **Microsoft Entra ID** | OAuth2 authentication with token caching |
+
+### Table filtering
+
+The Fabric `getDefinition` API returns the full TMDL definition of a semantic model. Each table's `.tmdl` file contains a partition declaration that indicates how the table gets its data:
+
+- `partition 'X' = m` — M (Power Query) partition, **refreshable**
+- `partition 'X' = calculated` — DAX calculated table, **excluded**
+- No partition — measure-only table, **excluded**
+
+This approach is more reliable and faster than querying the model with DAX, as it reads metadata only without scanning actual data.
 
 ## Authentication
 

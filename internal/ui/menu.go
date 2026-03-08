@@ -14,6 +14,9 @@ import (
 // ErrGoBack is returned when the user presses Esc/b to go back.
 var ErrGoBack = errors.New("go back")
 
+// ErrQuit is returned when the user presses Ctrl+C/q to quit.
+var ErrQuit = errors.New("quit")
+
 type MenuOption struct {
 	Label string
 	Value string
@@ -125,7 +128,7 @@ func NumberMenu(message string, options []MenuOption) (string, error) {
 	}
 	result := final.(menuModel)
 	if result.quit {
-		return "", fmt.Errorf("quit")
+		return "", ErrQuit
 	}
 	if result.goBack {
 		return "", ErrGoBack

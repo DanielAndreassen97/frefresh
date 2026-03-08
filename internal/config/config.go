@@ -9,7 +9,6 @@ import (
 )
 
 type Customer struct {
-	Path             string   `json:"path"`
 	WorkspacePattern string   `json:"workspace_pattern"`
 	Environments     []string `json:"environments"`
 }

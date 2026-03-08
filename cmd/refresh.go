@@ -7,7 +7,6 @@ import (
 
 	"github.com/DanielAndreassen97/frefresh/internal/api"
 	"github.com/DanielAndreassen97/frefresh/internal/config"
-	"github.com/DanielAndreassen97/frefresh/internal/discovery"
 	"github.com/DanielAndreassen97/frefresh/internal/ui"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -26,15 +25,14 @@ var (
 			Padding(0, 1)
 
 	infoStyle = lipgloss.NewStyle().Foreground(ui.AccentColor)
-
-	warnStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
 )
 
 // APIClient abstracts the Power BI API calls for testability and demo mode.
 type APIClient interface {
 	GetAccessToken(customer string) (string, error)
 	GetWorkspaceID(token, workspaceName string) (string, error)
-	GetDatasetID(token, workspaceID, datasetName string) (string, error)
+	ListDatasets(token, workspaceID string) ([]api.Dataset, error)
+	QueryTables(token, workspaceID, datasetID string) ([]string, error)
 	TriggerRefresh(token, workspaceID, datasetID string, tables []string) (string, error)
 	WaitForRefresh(token, workspaceID, datasetID, requestID string) (api.RefreshStatus, error)
 }
@@ -48,8 +46,11 @@ func (RealAPIClient) GetAccessToken(customer string) (string, error) {
 func (RealAPIClient) GetWorkspaceID(token, workspaceName string) (string, error) {
 	return api.GetWorkspaceID(token, workspaceName)
 }
-func (RealAPIClient) GetDatasetID(token, workspaceID, datasetName string) (string, error) {
-	return api.GetDatasetID(token, workspaceID, datasetName)
+func (RealAPIClient) ListDatasets(token, workspaceID string) ([]api.Dataset, error) {
+	return api.ListDatasets(token, workspaceID)
+}
+func (RealAPIClient) QueryTables(token, workspaceID, datasetID string) ([]string, error) {
+	return api.QueryTables(token, workspaceID, datasetID)
 }
 func (RealAPIClient) TriggerRefresh(token, workspaceID, datasetID string, tables []string) (string, error) {
 	return api.TriggerRefresh(token, workspaceID, datasetID, tables)
@@ -85,25 +86,49 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 		return err
 	}
 
-	models, err := discovery.DiscoverModels(customer.Path)
-	if err != nil {
-		return fmt.Errorf("failed to discover models: %w", err)
-	}
-	if len(models) == 0 {
-		return fmt.Errorf("no semantic models found in %s", customer.Path)
-	}
+	workspaceName := strings.ReplaceAll(customer.WorkspacePattern, "{env}", env)
 
-	model, err := selectModel(models)
+	// Authenticate early — we need the token to discover datasets and tables
+	fmt.Println()
+	fmt.Println(infoStyle.Render("Authenticating..."))
+	token, err := client.GetAccessToken(customerName)
+	if err != nil {
+		return fmt.Errorf("authentication failed: %w", err)
+	}
+	fmt.Println(infoStyle.Render("Authenticated."))
+	fmt.Println()
+
+	// Resolve workspace
+	workspaceID, err := client.GetWorkspaceID(token, workspaceName)
 	if err != nil {
 		return err
 	}
 
-	tables, err := discovery.DiscoverTables(model)
+	// List datasets from the API
+	datasets, err := client.ListDatasets(token, workspaceID)
 	if err != nil {
-		return fmt.Errorf("failed to discover tables: %w", err)
+		return fmt.Errorf("failed to list datasets: %w", err)
+	}
+	if len(datasets) == 0 {
+		return fmt.Errorf("no datasets found in workspace '%s'", workspaceName)
+	}
+
+	dataset, err := selectDataset(datasets)
+	if err != nil {
+		return err
+	}
+
+	// Query actual deployed tables via Fabric API
+	tableSpinner := ui.NewSpinner("Retrieving tables...")
+	tableSpinner.Start()
+
+	tables, err := client.QueryTables(token, workspaceID, dataset.ID)
+	tableSpinner.Stop()
+	if err != nil {
+		return fmt.Errorf("failed to query tables: %w", err)
 	}
 	if len(tables) == 0 {
-		return fmt.Errorf("no refreshable tables found in %s", model.Name)
+		return fmt.Errorf("no refreshable tables found in %s", dataset.Name)
 	}
 
 	selection, err := ui.TableCheckbox("Select tables to refresh", tables)
@@ -115,23 +140,13 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 		return nil
 	}
 
-	workspaceName := strings.ReplaceAll(customer.WorkspacePattern, "{env}", env)
-
 	fmt.Println()
 	fmt.Println(infoStyle.Render("Refresh Summary"))
 	fmt.Printf("  Customer:    %s\n", customerName)
 	fmt.Printf("  Environment: %s\n", env)
 	fmt.Printf("  Workspace:   %s\n", workspaceName)
-	fmt.Printf("  Model:       %s\n", model.Name)
+	fmt.Printf("  Model:       %s\n", dataset.Name)
 	fmt.Printf("  Tables:      %s\n", selection.Summary)
-
-	if !selection.FullRefresh && !strings.EqualFold(env, "DEV") {
-		fmt.Println()
-		fmt.Println(warnStyle.Render("  Warning: Some tables may not exist in " + env + ". If a selected table"))
-		fmt.Println(warnStyle.Render("  hasn't been deployed yet, the refresh will fail. Use \"All tables\""))
-		fmt.Println(warnStyle.Render("  for a safe full model refresh."))
-	}
-
 	fmt.Println()
 
 	ok, err := ui.Confirm("Start refresh?")
@@ -142,14 +157,6 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 		fmt.Println("Cancelled.")
 		return nil
 	}
-
-	fmt.Println()
-	fmt.Println(infoStyle.Render("Authenticating..."))
-	token, err := client.GetAccessToken(customerName)
-	if err != nil {
-		return fmt.Errorf("authentication failed: %w", err)
-	}
-	fmt.Println(infoStyle.Render("Authenticated."))
 
 	startTime := time.Now()
 
@@ -163,24 +170,13 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 	func() {
 		defer spinner.Stop()
 
-		workspaceID, err := client.GetWorkspaceID(token, workspaceName)
-		if err != nil {
-			refreshErr = err
-			return
-		}
-		datasetID, err := client.GetDatasetID(token, workspaceID, model.Name)
+		requestID, err := client.TriggerRefresh(token, workspaceID, dataset.ID, selection.Tables)
 		if err != nil {
 			refreshErr = err
 			return
 		}
 
-		requestID, err := client.TriggerRefresh(token, workspaceID, datasetID, selection.Tables)
-		if err != nil {
-			refreshErr = err
-			return
-		}
-
-		status, err = client.WaitForRefresh(token, workspaceID, datasetID, requestID)
+		status, err = client.WaitForRefresh(token, workspaceID, dataset.ID, requestID)
 		if err != nil {
 			refreshErr = err
 			return
@@ -238,21 +234,21 @@ func selectEnvironment(customer config.Customer) (string, error) {
 	return ui.NumberMenu("Select environment", options)
 }
 
-func selectModel(models []discovery.SemanticModel) (discovery.SemanticModel, error) {
-	if len(models) == 1 {
-		return models[0], nil
+func selectDataset(datasets []api.Dataset) (api.Dataset, error) {
+	if len(datasets) == 1 {
+		return datasets[0], nil
 	}
 
-	options := make([]ui.MenuOption, len(models))
-	modelMap := map[string]discovery.SemanticModel{}
-	for i, m := range models {
-		options[i] = ui.MenuOption{Label: m.Name, Value: m.Name}
-		modelMap[m.Name] = m
+	options := make([]ui.MenuOption, len(datasets))
+	dsMap := map[string]api.Dataset{}
+	for i, ds := range datasets {
+		options[i] = ui.MenuOption{Label: ds.Name, Value: ds.ID}
+		dsMap[ds.ID] = ds
 	}
 
 	selected, err := ui.NumberMenu("Select semantic model", options)
 	if err != nil {
-		return discovery.SemanticModel{}, err
+		return api.Dataset{}, err
 	}
-	return modelMap[selected], nil
+	return dsMap[selected], nil
 }

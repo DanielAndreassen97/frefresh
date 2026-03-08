@@ -20,7 +20,6 @@ func TestLoadConfigReturnsEmptyWhenNoFile(t *testing.T) {
 func TestAddAndListCustomer(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	err := AddCustomer(path, "Contoso", Customer{
-		Path:             "/tmp/contoso",
 		WorkspacePattern: "DP - {env} - SemMod",
 		Environments:     []string{"DEV", "TEST", "PROD"},
 	})
@@ -32,15 +31,14 @@ func TestAddAndListCustomer(t *testing.T) {
 		t.Fatalf("expected 1 customer, got %d", len(cfg.Customers))
 	}
 	c := cfg.Customers["Contoso"]
-	if c.Path != "/tmp/contoso" {
-		t.Errorf("expected /tmp/contoso, got %s", c.Path)
+	if c.WorkspacePattern != "DP - {env} - SemMod" {
+		t.Errorf("expected DP - {env} - SemMod, got %s", c.WorkspacePattern)
 	}
 }
 
 func TestRemoveCustomer(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	AddCustomer(path, "Contoso", Customer{
-		Path:             "/tmp/contoso",
 		WorkspacePattern: "DP - {env} - SemMod",
 		Environments:     []string{"DEV"},
 	})
@@ -75,13 +73,11 @@ func TestGetConfigPath(t *testing.T) {
 func TestEditCustomer(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	AddCustomer(path, "Contoso", Customer{
-		Path:             "/tmp/contoso",
 		WorkspacePattern: "DP - {env} - SemMod",
 		Environments:     []string{"DEV"},
 	})
 	err := EditCustomer(path, "Contoso", Customer{
-		Path:             "/tmp/contoso-updated",
-		WorkspacePattern: "DP - {env} - SemMod",
+		WorkspacePattern: "NW - {env} - Analytics",
 		Environments:     []string{"DEV", "PROD"},
 	})
 	if err != nil {
@@ -89,8 +85,8 @@ func TestEditCustomer(t *testing.T) {
 	}
 	cfg, _ := Load(path)
 	c := cfg.Customers["Contoso"]
-	if c.Path != "/tmp/contoso-updated" {
-		t.Errorf("expected /tmp/contoso-updated, got %s", c.Path)
+	if c.WorkspacePattern != "NW - {env} - Analytics" {
+		t.Errorf("expected NW - {env} - Analytics, got %s", c.WorkspacePattern)
 	}
 	if len(c.Environments) != 2 {
 		t.Errorf("expected 2 environments, got %d", len(c.Environments))
@@ -108,7 +104,9 @@ func TestEditNonexistentCustomerReturnsError(t *testing.T) {
 func TestSaveCreatesDirectory(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "nested", "deep")
 	path := filepath.Join(dir, "config.json")
-	err := AddCustomer(path, "Test", Customer{Path: "/tmp"})
+	err := AddCustomer(path, "Test", Customer{
+		WorkspacePattern: "DP - {env} - SemMod",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

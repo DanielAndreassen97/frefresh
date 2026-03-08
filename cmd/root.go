@@ -28,7 +28,11 @@ func MainMenu(configPath string) {
 			if errors.Is(err, ui.ErrGoBack) {
 				continue // Already at top level, just re-show menu
 			}
-			return // quit or real error
+			if errors.Is(err, ui.ErrQuit) {
+				return
+			}
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			return
 		}
 
 		var cmdErr error
@@ -44,14 +48,17 @@ func MainMenu(configPath string) {
 		case "list":
 			cmdErr = List(configPath)
 		case "logout":
-			Logout(configPath)
+			cmdErr = Logout(configPath)
 		case "quit":
 			return
 		}
 
 		if cmdErr != nil {
 			if errors.Is(cmdErr, ui.ErrGoBack) {
-				continue // Go back to main menu
+				continue
+			}
+			if errors.Is(cmdErr, ui.ErrQuit) {
+				return
 			}
 			fmt.Fprintf(os.Stderr, "Error: %v\n", cmdErr)
 		}

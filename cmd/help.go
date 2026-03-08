@@ -8,7 +8,7 @@ func Help() {
 Commands:
   refresh   Select a customer, model, and tables to refresh via Power BI API
   add       Add a new customer configuration
-  edit      Edit an existing customer's path, workspace pattern, or environments
+  edit      Edit an existing customer's workspace pattern or environments
   remove    Remove a customer configuration
   list      Show all configured customers
   logout    Clear cached OAuth tokens from the OS keychain

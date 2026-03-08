@@ -3,8 +3,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os/exec"
-	"runtime"
 	"strings"
 
 	"github.com/DanielAndreassen97/frefresh/internal/config"
@@ -40,20 +38,8 @@ func runFormStep(input *huh.Input) error {
 	return nil
 }
 
-func pickFolder() (string, error) {
-	if runtime.GOOS == "darwin" {
-		out, err := exec.Command("osascript", "-e",
-			`POSIX path of (choose folder with prompt "Select folder with semantic models")`).Output()
-		if err != nil {
-			return "", fmt.Errorf("folder selection cancelled")
-		}
-		return strings.TrimRight(strings.TrimSpace(string(out)), "/"), nil
-	}
-	return "", fmt.Errorf("no picker")
-}
-
 func Add(configPath string) error {
-	var name, path, pattern, envInput string
+	var name, pattern, envInput string
 
 	// Step 1: Customer name
 	if err := runFormStep(huh.NewInput().Title("Customer name").Value(&name)); err != nil {
@@ -63,21 +49,7 @@ func Add(configPath string) error {
 		return fmt.Errorf("customer name is required")
 	}
 
-	// Step 2: Path — try Finder picker, fall back to text input
-	titleStyle := lipgloss.NewStyle().Foreground(ui.AccentColor).Bold(true)
-	fmt.Println("  " + titleStyle.Render("Path to folder with semantic models"))
-	path, err := pickFolder()
-	if err != nil {
-		// Finder cancelled — fall back to text input (no duplicate title)
-		if err := runFormStep(huh.NewInput().Title("Enter path manually").Value(&path)); err != nil {
-			return err
-		}
-	}
-	if path == "" {
-		return ui.ErrGoBack
-	}
-
-	// Step 3: Workspace pattern
+	// Step 2: Workspace pattern
 	pattern = "DP - {env} - SemMod"
 	if err := runFormStep(huh.NewInput().Title("Workspace pattern (use {env} for environment)").Value(&pattern)); err != nil {
 		return err
@@ -86,7 +58,7 @@ func Add(configPath string) error {
 		pattern = "DP - {env} - SemMod"
 	}
 
-	// Step 4: Environments
+	// Step 3: Environments
 	envInput = "DEV, TEST, PROD"
 	if err := runFormStep(huh.NewInput().Title("Environments (comma-separated)").Value(&envInput)); err != nil {
 		return err
@@ -98,7 +70,6 @@ func Add(configPath string) error {
 	envs := parseEnvs(envInput)
 
 	addErr := config.AddCustomer(configPath, name, config.Customer{
-		Path:             path,
 		WorkspacePattern: pattern,
 		Environments:     envs,
 	})

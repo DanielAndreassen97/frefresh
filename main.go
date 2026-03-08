@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -58,7 +59,7 @@ func main() {
 	case "refresh":
 		err = cmd.Refresh(configPath)
 	case "logout":
-		cmd.Logout(configPath)
+		err = cmd.Logout(configPath)
 	case "help", "--help", "-h":
 		cmd.Help()
 	case "version", "--version", "-v":
@@ -68,6 +69,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err != nil {
+		if errors.Is(err, ui.ErrQuit) || errors.Is(err, ui.ErrGoBack) {
+			return
+		}
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

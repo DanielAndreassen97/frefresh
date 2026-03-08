@@ -43,7 +43,8 @@ type tableCheckModel struct {
 	items     []checkItem
 	cursor    int
 	selection TableSelection
-	cancelled bool
+	goBack    bool
+	quit      bool
 	done      bool
 	groupMap  map[int][]int // group index -> child indices
 	parentMap map[int]int   // child index -> group index
@@ -193,11 +194,11 @@ func (m tableCheckModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.done = true
 			return m, tea.Quit
 		case "esc", "b":
-			m.cancelled = true
+			m.goBack = true
 			m.done = true
 			return m, tea.Quit
 		case "ctrl+c", "q":
-			m.cancelled = true
+			m.quit = true
 			m.done = true
 			return m, tea.Quit
 		}
@@ -214,7 +215,7 @@ var (
 
 func (m tableCheckModel) View() string {
 	if m.done {
-		if m.cancelled {
+		if m.goBack || m.quit {
 			return ""
 		}
 		return selectedStyle.Render(fmt.Sprintf("  Tables: %s", m.selection.Summary)) + "\n"
@@ -267,8 +268,11 @@ func TableCheckbox(message string, tables []string) (TableSelection, error) {
 		return TableSelection{}, err
 	}
 	result := final.(tableCheckModel)
-	if result.cancelled {
-		return TableSelection{}, fmt.Errorf("cancelled")
+	if result.quit {
+		return TableSelection{}, ErrQuit
+	}
+	if result.goBack {
+		return TableSelection{}, ErrGoBack
 	}
 	return result.selection, nil
 }

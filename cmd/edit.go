@@ -30,7 +30,6 @@ func Edit(configPath string) error {
 	}
 
 	customer := cfg.Customers[selected]
-	path := customer.Path
 	pattern := customer.WorkspacePattern
 	envInput := strings.Join(customer.Environments, ", ")
 
@@ -39,7 +38,6 @@ func Edit(configPath string) error {
 
 	err = huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Title("Path to folder with semantic models").Value(&path),
 			huh.NewInput().Title("Workspace pattern (use {env} for environment)").Value(&pattern),
 			huh.NewInput().Title("Environments (comma-separated)").Value(&envInput),
 		),
@@ -52,7 +50,6 @@ func Edit(configPath string) error {
 	}
 
 	err = config.EditCustomer(configPath, selected, config.Customer{
-		Path:             strings.TrimRight(path, "/"),
 		WorkspacePattern: pattern,
 		Environments:     parseEnvs(envInput),
 	})

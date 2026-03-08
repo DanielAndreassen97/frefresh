@@ -30,7 +30,6 @@ func List(configPath string) error {
 			fmt.Println()
 		}
 		fmt.Println(listHeaderStyle.Render(name))
-		fmt.Printf("  %s %s\n", listLabelStyle.Render("Path:"), customer.Path)
 		fmt.Printf("  %s %s\n", listLabelStyle.Render("Pattern:"), customer.WorkspacePattern)
 		fmt.Printf("  %s %v\n", listLabelStyle.Render("Environments:"), customer.Environments)
 	}

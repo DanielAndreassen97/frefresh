@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -33,6 +34,7 @@ func keyFor(customer, kind string) string {
 
 func randomState() string {
 	b := make([]byte, 16)
+	// crypto/rand.Read always succeeds or panics (since Go 1.20).
 	rand.Read(b)
 	return hex.EncodeToString(b)
 }
@@ -70,10 +72,16 @@ type tokenResponse struct {
 
 func saveTokens(customer string, tr tokenResponse) {
 	expiry := time.Now().Add(time.Duration(tr.ExpiresIn) * time.Second)
-	keyring.Set(keyringService, keyFor(customer, "access_token"), tr.AccessToken)
-	keyring.Set(keyringService, keyFor(customer, "token_expiry"), strconv.FormatInt(expiry.Unix(), 10))
+	if err := keyring.Set(keyringService, keyFor(customer, "access_token"), tr.AccessToken); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to cache access token: %v\n", err)
+	}
+	if err := keyring.Set(keyringService, keyFor(customer, "token_expiry"), strconv.FormatInt(expiry.Unix(), 10)); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to cache token expiry: %v\n", err)
+	}
 	if tr.RefreshToken != "" {
-		keyring.Set(keyringService, keyFor(customer, "refresh_token"), tr.RefreshToken)
+		if err := keyring.Set(keyringService, keyFor(customer, "refresh_token"), tr.RefreshToken); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to cache refresh token: %v\n", err)
+		}
 	}
 }
 

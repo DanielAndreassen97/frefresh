@@ -1,7 +1,7 @@
 package demo
 
 import (
-	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -20,12 +20,23 @@ func (MockAPIClient) GetAccessToken(customer string) (string, error) {
 
 func (MockAPIClient) GetWorkspaceID(token, workspaceName string) (string, error) {
 	time.Sleep(300 * time.Millisecond)
-	return "demo-workspace-id", nil
+	return "00000000-0000-0000-0000-000000000001", nil
 }
 
-func (MockAPIClient) GetDatasetID(token, workspaceID, datasetName string) (string, error) {
+func (MockAPIClient) ListDatasets(token, workspaceID string) ([]api.Dataset, error) {
 	time.Sleep(200 * time.Millisecond)
-	return "demo-dataset-id", nil
+	return []api.Dataset{
+		{ID: "00000000-0000-0000-0000-000000000010", Name: "HR"},
+		{ID: "00000000-0000-0000-0000-000000000020", Name: "Finance"},
+	}, nil
+}
+
+func (MockAPIClient) QueryTables(token, workspaceID, datasetID string) ([]string, error) {
+	time.Sleep(300 * time.Millisecond)
+	if datasetID == "00000000-0000-0000-0000-000000000020" {
+		return []string{"Dim Account", "Dim CostCenter", "Fact Actuals", "Fact Budget"}, nil
+	}
+	return []string{"Dim Department", "Dim Employee", "Dim Location", "Fact Absence", "Fact Overtime", "Fact Salary"}, nil
 }
 
 func (MockAPIClient) TriggerRefresh(token, workspaceID, datasetID string, tables []string) (string, error) {
@@ -38,8 +49,8 @@ func (MockAPIClient) WaitForRefresh(token, workspaceID, datasetID, requestID str
 	return api.RefreshStatus{Status: "Completed"}, nil
 }
 
-// SetupFixtures creates a temp directory with fake semantic model files and a config
-// pointing to it. Returns the config path and a cleanup function.
+// SetupFixtures creates a temp directory with a config for demo mode.
+// Returns the config path and a cleanup function.
 func SetupFixtures() (string, func(), error) {
 	tmpDir, err := os.MkdirTemp("", "frefresh-demo-*")
 	if err != nil {
@@ -47,84 +58,24 @@ func SetupFixtures() (string, func(), error) {
 	}
 	cleanup := func() { os.RemoveAll(tmpDir) }
 
-	repoDir := filepath.Join(tmpDir, "repo")
 	configPath := filepath.Join(tmpDir, "config.json")
 
-	// Create fake semantic model: HR
-	hrDir := filepath.Join(repoDir, "HR.SemanticModel")
-	tablesDir := filepath.Join(hrDir, "definition", "tables")
-	os.MkdirAll(tablesDir, 0o755)
-
-	platform := map[string]any{
-		"metadata": map[string]any{"type": "SemanticModel", "displayName": "HR"},
-		"config":   map[string]any{"logicalId": "demo-hr-001"},
-	}
-	data, _ := json.Marshal(platform)
-	os.WriteFile(filepath.Join(hrDir, ".platform"), data, 0o644)
-
-	dimTables := []string{"Dim Employee", "Dim Department", "Dim Location"}
-	factTables := []string{"Fact Absence", "Fact Salary", "Fact Overtime"}
-	for _, t := range append(dimTables, factTables...) {
-		content := "table '" + t + "'\n\tpartition '" + t + "' = m\n\t\tmode: import\n"
-		os.WriteFile(filepath.Join(tablesDir, t+".tmdl"), []byte(content), 0o644)
-	}
-
-	// Calculated table (should be excluded)
-	os.WriteFile(filepath.Join(tablesDir, "_Measures.tmdl"),
-		[]byte("table _Measures\n\tpartition _Measures = calculated\n\t\tmode: import\n"), 0o644)
-
-	// Create second model: Finance
-	finDir := filepath.Join(repoDir, "Finance.SemanticModel")
-	finTablesDir := filepath.Join(finDir, "definition", "tables")
-	os.MkdirAll(finTablesDir, 0o755)
-
-	finPlatform := map[string]any{
-		"metadata": map[string]any{"type": "SemanticModel", "displayName": "Finance"},
-		"config":   map[string]any{"logicalId": "demo-fin-001"},
-	}
-	fd, _ := json.Marshal(finPlatform)
-	os.WriteFile(filepath.Join(finDir, ".platform"), fd, 0o644)
-
-	finTableNames := []string{"Dim Account", "Dim CostCenter", "Fact Budget", "Fact Actuals"}
-	for _, t := range finTableNames {
-		content := "table '" + t + "'\n\tpartition '" + t + "' = m\n\t\tmode: import\n"
-		os.WriteFile(filepath.Join(finTablesDir, t+".tmdl"), []byte(content), 0o644)
-	}
-
-	// Create second customer repo: Northwind
-	nwDir := filepath.Join(repoDir+"_northwind", "Sales.SemanticModel")
-	nwTablesDir := filepath.Join(nwDir, "definition", "tables")
-	os.MkdirAll(nwTablesDir, 0o755)
-
-	nwPlatform := map[string]any{
-		"metadata": map[string]any{"type": "SemanticModel", "displayName": "Sales"},
-		"config":   map[string]any{"logicalId": "demo-sales-001"},
-	}
-	nd, _ := json.Marshal(nwPlatform)
-	os.WriteFile(filepath.Join(nwDir, ".platform"), nd, 0o644)
-
-	nwTableNames := []string{"Dim Customer", "Dim Product", "Dim Region", "Fact Orders", "Fact Revenue"}
-	for _, t := range nwTableNames {
-		content := "table '" + t + "'\n\tpartition '" + t + "' = m\n\t\tmode: import\n"
-		os.WriteFile(filepath.Join(nwTablesDir, t+".tmdl"), []byte(content), 0o644)
-	}
-
-	// Create config with demo customers
 	cfg := config.Config{
 		Customers: map[string]config.Customer{
 			"Contoso": {
-				Path:             repoDir,
 				WorkspacePattern: "DP - {env} - SemMod",
 				Environments:     []string{"DEV", "TEST", "PROD"},
 			},
 			"Northwind": {
-				Path:             repoDir + "_northwind",
 				WorkspacePattern: "NW - {env} - Analytics",
 				Environments:     []string{"DEV", "PROD"},
 			},
 		},
 	}
-	config.Save(configPath, cfg)
+	if err := config.Save(configPath, cfg); err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("failed to save demo config: %w", err)
+	}
 
 	return configPath, cleanup, nil
 }
