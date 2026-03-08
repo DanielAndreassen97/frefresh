@@ -26,6 +26,8 @@ var (
 			Padding(0, 1)
 
 	infoStyle = lipgloss.NewStyle().Foreground(ui.AccentColor)
+
+	warnStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
 )
 
 // APIClient abstracts the Power BI API calls for testability and demo mode.
@@ -122,6 +124,14 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 	fmt.Printf("  Workspace:   %s\n", workspaceName)
 	fmt.Printf("  Model:       %s\n", model.Name)
 	fmt.Printf("  Tables:      %s\n", selection.Summary)
+
+	if !selection.FullRefresh && !strings.EqualFold(env, "DEV") {
+		fmt.Println()
+		fmt.Println(warnStyle.Render("  Warning: Some tables may not exist in " + env + ". If a selected table"))
+		fmt.Println(warnStyle.Render("  hasn't been deployed yet, the refresh will fail. Use \"All tables\""))
+		fmt.Println(warnStyle.Render("  for a safe full model refresh."))
+	}
+
 	fmt.Println()
 
 	ok, err := ui.Confirm("Start refresh?")
