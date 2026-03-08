@@ -71,7 +71,7 @@ func RefreshWithAPI(configPath string, client APIClient) error {
 		return err
 	}
 	if len(cfg.Customers) == 0 {
-		fmt.Println("No customers configured. Use 'frefresh add' to add one.")
+		fmt.Println("No customers configured. Add a customer first.")
 		return nil
 	}
 
