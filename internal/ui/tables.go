@@ -39,17 +39,18 @@ type checkItem struct {
 }
 
 type tableCheckModel struct {
-	message   string
-	items     []checkItem
-	cursor    int
-	selection TableSelection
-	goBack    bool
-	quit      bool
-	done      bool
-	groupMap  map[int][]int // group index -> child indices
-	parentMap map[int]int   // child index -> group index
-	allGroups []int
-	allItems  []int
+	message    string
+	items      []checkItem
+	cursor     int
+	selection  TableSelection
+	goBack     bool
+	quit       bool
+	done       bool
+	groupMap   map[int][]int // group index -> child indices
+	parentMap  map[int]int   // child index -> group index
+	allGroups  []int
+	allItems   []int
+	termHeight int // terminal height for viewport scrolling
 }
 
 func buildItems(tables []string) ([]checkItem, map[int][]int, map[int]int, []int, []int) {
@@ -179,14 +180,28 @@ func (m tableCheckModel) collectSelection() TableSelection {
 
 func (m tableCheckModel) Init() tea.Cmd { return nil }
 
+const jumpSize = 5
+
 func (m tableCheckModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.termHeight = msg.Height
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up", "k":
 			m.cursor = (m.cursor - 1 + len(m.items)) % len(m.items)
 		case "down", "j":
 			m.cursor = (m.cursor + 1) % len(m.items)
+		case "alt+up", "alt+k":
+			m.cursor -= jumpSize
+			if m.cursor < 0 {
+				m.cursor = 0
+			}
+		case "alt+down", "alt+j":
+			m.cursor += jumpSize
+			if m.cursor >= len(m.items) {
+				m.cursor = len(m.items) - 1
+			}
 		case " ":
 			m.toggle(m.cursor)
 		case "enter":
@@ -208,53 +223,100 @@ func (m tableCheckModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 var (
 	pointerStyle  = lipgloss.NewStyle().Foreground(AccentColor).Bold(true)
-	checkedStyle  = lipgloss.NewStyle().Foreground(AccentColor).Bold(true)
-	dimmedStyle   = lipgloss.NewStyle().Foreground(DimColor)
-	selectedStyle = lipgloss.NewStyle().Foreground(AccentColor).Bold(true)
+	checkedStyle      = lipgloss.NewStyle().Foreground(AccentColor).Bold(true)
+	dimmedStyle       = lipgloss.NewStyle().Foreground(DimColor)
+	cursorStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Bold(true)
+	checkedLabelStyle = lipgloss.NewStyle().Foreground(AccentColor)
 )
+
+func (m tableCheckModel) renderItem(i int) string {
+	item := m.items[i]
+	locked := m.isLocked(i)
+	checked := item.checked || locked
+	isCursor := i == m.cursor
+
+	pointer := "  "
+	if isCursor {
+		pointer = pointerStyle.Render("❯ ")
+	}
+
+	box := "□ "
+	if checked {
+		box = checkedStyle.Render("■ ")
+	}
+
+	var label string
+	if item.kind == itemAll || item.kind == itemGroup {
+		label = fmt.Sprintf("── %s ──", item.label)
+	} else {
+		label = fmt.Sprintf("    %s", item.label)
+	}
+
+	if locked {
+		box = dimmedStyle.Render("■ ")
+		label = dimmedStyle.Render(label)
+	} else if isCursor {
+		label = cursorStyle.Render(label)
+	} else if checked {
+		label = checkedLabelStyle.Render(label)
+	}
+
+	return fmt.Sprintf("%s%s%s", pointer, box, label)
+}
 
 func (m tableCheckModel) View() string {
 	if m.done {
 		if m.goBack || m.quit {
 			return ""
 		}
-		return selectedStyle.Render(fmt.Sprintf("  Tables: %s", m.selection.Summary)) + "\n"
+		return checkedStyle.Render(fmt.Sprintf("  Tables: %s", m.selection.Summary)) + "\n"
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "  %s  (space to toggle)\n\n", m.message)
+	header := fmt.Sprintf("  %s  (space to toggle, alt+↑↓ to jump)\n\n", m.message)
+	b.WriteString(header)
 
-	for i, item := range m.items {
-		locked := m.isLocked(i)
-		checked := item.checked || locked
-		isCursor := i == m.cursor
-
-		pointer := "  "
-		if isCursor {
-			pointer = pointerStyle.Render("❯ ")
+	// header takes 2 lines, reserve 1 for safety
+	maxVisible := m.termHeight - 3
+	if maxVisible <= 0 || maxVisible >= len(m.items) {
+		// Terminal height unknown or everything fits — render all
+		for i := range m.items {
+			fmt.Fprintf(&b, "%s\n", m.renderItem(i))
 		}
-
-		box := "□ "
-		if checked {
-			box = checkedStyle.Render("■ ")
-		}
-
-		var label string
-		if item.kind == itemAll || item.kind == itemGroup {
-			label = fmt.Sprintf("── %s ──", item.label)
-		} else {
-			label = fmt.Sprintf("    %s", item.label)
-		}
-
-		if locked {
-			box = dimmedStyle.Render("■ ")
-			label = dimmedStyle.Render(label)
-		} else if isCursor && checked {
-			label = selectedStyle.Render(label)
-		}
-
-		fmt.Fprintf(&b, "%s%s%s\n", pointer, box, label)
+		return b.String()
 	}
+
+	// Reserve 2 lines for potential ↑/↓ indicators
+	itemSlots := maxVisible - 2
+	if itemSlots < 1 {
+		itemSlots = 1
+	}
+
+	start := m.cursor - itemSlots/2
+	if start < 0 {
+		start = 0
+	}
+	end := start + itemSlots
+	if end > len(m.items) {
+		end = len(m.items)
+		start = end - itemSlots
+		if start < 0 {
+			start = 0
+		}
+	}
+
+	if start > 0 {
+		fmt.Fprintf(&b, "  %s\n", dimmedStyle.Render(fmt.Sprintf("↑ %d more above", start)))
+	}
+
+	for i := start; i < end; i++ {
+		fmt.Fprintf(&b, "%s\n", m.renderItem(i))
+	}
+
+	if end < len(m.items) {
+		fmt.Fprintf(&b, "  %s\n", dimmedStyle.Render(fmt.Sprintf("↓ %d more below", len(m.items)-end)))
+	}
+
 	return b.String()
 }
 
